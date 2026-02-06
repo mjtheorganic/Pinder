@@ -59,6 +59,234 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        // 전역 변수
+        let deliveries = [];
+
+        // 전화번호 포맷팅
+        function formatPhone(value) {
+            const numbers = value.replace(/[^\d]/g, '');
+            if (numbers.length <= 3) return numbers;
+            if (numbers.length <= 7) return numbers.slice(0, 3) + '-' + numbers.slice(3);
+            return numbers.slice(0, 3) + '-' + numbers.slice(3, 7) + '-' + numbers.slice(7, 11);
+        }
+
+        // 전화번호 입력 필드 자동 포맷팅
+        const phoneInput = document.getElementById('phoneInput');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', (e) => {
+                e.target.value = formatPhone(e.target.value);
+            });
+
+            phoneInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchDeliveries();
+                }
+            });
+        }
+
+        // 배송 조회
+        async function searchDeliveries() {
+            const phone = phoneInput.value.trim();
+            
+            if (!phone) {
+                alert('전화번호를 입력해주세요.');
+                phoneInput.focus();
+                return;
+            }
+
+            if (phone.replace(/[^\d]/g, '').length < 10) {
+                alert('올바른 전화번호를 입력해주세요.');
+                phoneInput.focus();
+                return;
+            }
+
+            // 로딩 표시
+            showLoading(true);
+
+            try {
+                // API 호출 시뮬레이션
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // 시뮬레이션 데이터 생성
+                deliveries = generateMockDeliveries();
+                
+                // 배송 현황 화면으로 전환
+                showDeliveryScreen();
+                
+            } catch (error) {
+                console.error('배송 조회 오류:', error);
+                alert('배송 정보 조회 중 오류가 발생했습니다.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 시뮬레이션 데이터 생성
+        function generateMockDeliveries() {
+            const products = [
+                '무선 이어폰 프로',
+                '블루투스 키보드',
+                '스킨케어 세트',
+                '립스틱 3종 세트',
+                '노트북 파우치',
+                '스마트워치 밴드',
+                '텀블러',
+                '운동화'
+            ];
+
+            const platforms = ['naver', 'coupang', 'oliveyoung'];
+            const statuses = ['발송준비', '배송시작', '배송중', '도착'];
+
+            const count = Math.floor(Math.random() * 4) + 3; // 3~6개
+            const result = [];
+
+            for (let i = 0; i < count; i++) {
+                const now = new Date();
+                const randomHours = Math.floor(Math.random() * 72); // 0~72시간 전
+                const updateDate = new Date(now - randomHours * 3600000);
+
+                result.push({
+                    id: Date.now() + i,
+                    productName: products[Math.floor(Math.random() * products.length)],
+                    platform: platforms[Math.floor(Math.random() * platforms.length)],
+                    status: statuses[Math.floor(Math.random() * statuses.length)],
+                    updatedAt: updateDate
+                });
+            }
+
+            return result;
+        }
+
+        // 배송 현황 화면 표시
+        function showDeliveryScreen() {
+            document.getElementById('mainScreen').style.display = 'none';
+            document.getElementById('deliveryScreen').style.display = 'block';
+            
+            renderDeliveries();
+        }
+
+        // 메인 화면으로 돌아가기
+        function goBack() {
+            document.getElementById('deliveryScreen').style.display = 'none';
+            document.getElementById('mainScreen').style.display = 'block';
+            
+            // 입력 초기화
+            phoneInput.value = '';
+            deliveries = [];
+        }
+
+        // 배송 목록 렌더링
+        function renderDeliveries() {
+            const listContainer = document.getElementById('deliveryList');
+            const emptyState = document.getElementById('emptyState');
+            const countElement = document.getElementById('deliveryCount');
+
+            if (deliveries.length === 0) {
+                listContainer.style.display = 'none';
+                emptyState.classList.add('show');
+                countElement.textContent = '0';
+                return;
+            }
+
+            emptyState.classList.remove('show');
+            listContainer.style.display = 'flex';
+            countElement.textContent = deliveries.length;
+
+            // 최신순 정렬
+            const sortedDeliveries = [...deliveries].sort((a, b) => 
+                new Date(b.updatedAt) - new Date(a.updatedAt)
+            );
+
+            listContainer.innerHTML = sortedDeliveries.map(delivery => {
+                const platformInfo = getPlatformInfo(delivery.platform);
+                const statusClass = getStatusClass(delivery.status);
+                
+                return `
+                    <div class="delivery-item">
+                        <div class="delivery-info">
+                            <div class="product-name">${delivery.productName}</div>
+                            <div class="delivery-meta">
+                                <span class="platform-tag platform-${delivery.platform}">
+                                    ${platformInfo}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="delivery-status-info">
+                            <span class="status-badge ${statusClass}">
+                                ${delivery.status}
+                            </span>
+                            <span class="delivery-date">
+                                ${formatDateTime(delivery.updatedAt)}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 쇼핑몰 정보
+        function getPlatformInfo(platform) {
+            const platforms = {
+                naver: '네이버',
+                coupang: '쿠팡',
+                oliveyoung: '올영'
+            };
+            return platforms[platform] || platform;
+        }
+
+        // 상태 클래스
+        function getStatusClass(status) {
+            const statusMap = {
+                '발송준비': 'status-preparing',
+                '배송시작': 'status-shipping',
+                '배송중': 'status-shipping',
+                '도착': 'status-arrival'
+            };
+            return statusMap[status] || 'status-preparing';
+        }
+
+        // 날짜 포맷팅
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            const diffHours = Math.floor(diff / (1000 * 60 * 60));
+            
+            // 24시간 이내면 "X시간 전"
+            if (diffHours < 24) {
+                if (diffHours < 1) {
+                    const diffMinutes = Math.floor(diff / (1000 * 60));
+                    return `${diffMinutes}분 전`;
+                }
+                return `${diffHours}시간 전`;
+            }
+            
+            // 그 외에는 날짜 표시
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            
+            return `${month}.${day} ${hours}:${minutes}`;
+        }
+
+        // 로딩 표시
+        function showLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                overlay.classList.add('show');
+            } else {
+                overlay.classList.remove('show');
+            }
+        }
+
+        // 페이지 로드 시 전화번호 입력 필드에 포커스
+        window.addEventListener('load', () => {
+            if (phoneInput) {
+                phoneInput.focus();
+            }
+        });
+    </script>
 </body>
 </html>
